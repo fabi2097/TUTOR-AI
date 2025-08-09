@@ -55,6 +55,7 @@ class Plugin {
         add_action('init', [$this, 'load_textdomain']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_public_assets']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
+        add_action('wp_footer', [$this, 'render_chat_widget']);
     }
 
     /**
@@ -158,6 +159,30 @@ class Plugin {
             echo '<div class="notice notice-error">';
             echo '<p><strong>Tutor AI:</strong> ' . __('Este plugin requiere Tutor LMS para funcionar correctamente.', 'tutor-ai') . '</p>';
             echo '</div>';
+        }
+    }
+
+    /**
+     * Render chat widget in frontend
+     */
+    public function render_chat_widget() {
+        // Solo mostrar en el frontend, no en admin
+        if (is_admin()) {
+            return;
+        }
+
+        // Verificar si el chat está habilitado
+        $settings = get_option('tutor_ai_settings', []);
+        $chat_enabled = $settings['chat_enabled'] ?? false;
+        
+        if (!$chat_enabled) {
+            return;
+        }
+
+        // Incluir el template del widget
+        $widget_path = TUTOR_AI_PATH . 'public/views/chat-widget.php';
+        if (file_exists($widget_path)) {
+            include $widget_path;
         }
     }
 }

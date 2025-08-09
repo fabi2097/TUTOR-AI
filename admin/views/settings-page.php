@@ -303,8 +303,17 @@ $settings = TutorAI\AdminSettings::instance()->get_settings();
         <h1><?php _e('Tutor AI - Configuración del Asistente', 'tutor-ai'); ?></h1>
     </div>
 
+    <?php
+    // Procesar formulario si se envió
+    if (isset($_POST['tutor_ai_save_settings']) && wp_verify_nonce($_POST['tutor_ai_nonce'], 'tutor_ai_settings')) {
+        TutorAI\AdminSettings::instance()->save_settings($_POST);
+        echo '<div class="notice notice-success"><p>' . __('Configuración guardada exitosamente.', 'tutor-ai') . '</p></div>';
+    }
+    ?>
+
     <form method="post" action="" id="tutor-ai-form">
-        <?php wp_nonce_field('tutor_ai_settings'); ?>
+        <?php wp_nonce_field('tutor_ai_settings', 'tutor_ai_nonce'); ?>
+        <input type="hidden" name="tutor_ai_save_settings" value="1">
         
         <div class="tutor-ai-content">
             <!-- Sidebar Navigation -->

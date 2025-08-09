@@ -33,6 +33,10 @@ class RestController extends WP_REST_Controller {
      */
     protected function init() {
         add_action('rest_api_init', [$this, 'register_routes']);
+        
+        // AJAX handlers for chat widget
+        add_action('wp_ajax_tutor_ai_chat', [$this, 'handle_ajax_chat']);
+        add_action('wp_ajax_nopriv_tutor_ai_chat', [$this, 'handle_ajax_chat']);
     }
 
     /**
@@ -529,5 +533,66 @@ class RestController extends WP_REST_Controller {
         }
         
         return array_slice($suggestions, 0, 3);
+    }
+
+    /**
+     * Handle AJAX chat requests from the frontend widget
+     */
+    public function handle_ajax_chat() {
+        // Verificar nonce de seguridad
+        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'tutor_ai_chat')) {
+            wp_die('Security check failed', 'Unauthorized', ['response' => 403]);
+        }
+
+        $message = sanitize_text_field($_POST['message'] ?? '');
+        
+        if (empty($message)) {
+            wp_send_json_error('Message cannot be empty');
+            return;
+        }
+
+        try {
+            // Obtener el servicio de IA
+            $ai_service = AIService::get_instance();
+            
+            // Obtener configuraciones
+            $settings = get_option('tutor_ai_settings', []);
+            $system_message = $settings['system_message'] ?? 'You are a helpful AI assistant for an online learning platform.';
+            
+            // Generar respuesta usando GPT-5 o el modelo configurado
+            $response = $ai_service->generateOpenAIResponse([
+                'model' => $settings['ai_model'] ?? 'gpt-5-mini',
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => $system_message
+                    ],
+                    [
+                        'role' => 'user', 
+                        'content' => $message
+                    ]
+                ],
+                'max_tokens' => 500,
+                'temperature' => 0.7
+            ]);
+
+            // Verificar si la respuesta fue exitosa
+            if (isset($response['error'])) {
+                throw new Exception($response['error']);
+            }
+
+            $ai_response = $response['content'] ?? 'Lo siento, no pude generar una respuesta.';
+            
+            // Log para debugging (opcional)
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log("Tutor AI Chat - User: {$message}, AI: {$ai_response}");
+            }
+            
+            wp_send_json_success($ai_response);
+
+        } catch (Exception $e) {
+            error_log('Tutor AI Chat Error: ' . $e->getMessage());
+            wp_send_json_error('Lo siento, ocurrió un error al procesar tu mensaje. Por favor intenta de nuevo.');
+        }
     }
 }
