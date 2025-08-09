@@ -1,0 +1,1 @@
+// Descripción del plugin para el repositorio WordPress.org: secciones de instalación, descripción, cambios y capturas de pantalla.s

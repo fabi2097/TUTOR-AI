@@ -1,0 +1,1 @@
+// Reglas de PHPCS enfocadas en WordPress Coding Standards; se usa para correr `composer run lint` o `phpcs`.

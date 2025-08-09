@@ -1,0 +1,12 @@
+{
+  "name": "tutor-ai",
+  "version": "1.0.0",
+  "description": "// Descripción del plugin para el repositorio WordPress.org: secciones de instalación, descripción, cambios y capturas de pantalla.s",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

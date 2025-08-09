@@ -1,0 +1,1 @@
+// Plantilla de traducción: cadenas extraídas de todo el plugin para traducir.
