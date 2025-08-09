@@ -539,12 +539,18 @@ class RestController extends WP_REST_Controller {
      * Handle AJAX chat requests from the frontend widget
      */
     public function handle_ajax_chat() {
+        // Debug: Verificar que el método se ejecuta
+        error_log('TUTOR AI DEBUG: handle_ajax_chat called');
+        
         // Verificar nonce de seguridad
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'tutor_ai_chat')) {
-            wp_die('Security check failed', 'Unauthorized', ['response' => 403]);
+            error_log('TUTOR AI DEBUG: Nonce verification failed');
+            wp_send_json_error('Security check failed');
+            return;
         }
 
         $message = sanitize_text_field($_POST['message'] ?? '');
+        error_log('TUTOR AI DEBUG: Message received: ' . $message);
         
         if (empty($message)) {
             wp_send_json_error('Message cannot be empty');
@@ -552,47 +558,30 @@ class RestController extends WP_REST_Controller {
         }
 
         try {
-            // Obtener el servicio de IA
-            $ai_service = AIService::get_instance();
+            // Por ahora, respuesta de prueba
+            error_log('TUTOR AI DEBUG: About to check API key');
             
-            // Obtener configuraciones
-            $settings = get_option('tutor_ai_settings', []);
-            $system_message = $settings['system_message'] ?? 'You are a helpful AI assistant for an online learning platform.';
+            // Verificar que hay API key configurada
+            $api_key = get_option('tutor_ai_openai_api_key', '');
+            error_log('TUTOR AI DEBUG: API Key length: ' . strlen($api_key));
             
-            // Generar respuesta usando GPT-5 o el modelo configurado
-            $response = $ai_service->generateOpenAIResponse([
-                'model' => $settings['ai_model'] ?? 'gpt-5-mini',
-                'messages' => [
-                    [
-                        'role' => 'system',
-                        'content' => $system_message
-                    ],
-                    [
-                        'role' => 'user', 
-                        'content' => $message
-                    ]
-                ],
-                'max_tokens' => 500,
-                'temperature' => 0.7
-            ]);
-
-            // Verificar si la respuesta fue exitosa
-            if (isset($response['error'])) {
-                throw new Exception($response['error']);
-            }
-
-            $ai_response = $response['content'] ?? 'Lo siento, no pude generar una respuesta.';
-            
-            // Log para debugging (opcional)
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log("Tutor AI Chat - User: {$message}, AI: {$ai_response}");
+            if (empty($api_key)) {
+                wp_send_json_error('API key no configurada. Por favor configura tu clave API en la configuración del plugin.');
+                return;
             }
             
-            wp_send_json_success($ai_response);
+            // Por ahora devolver respuesta de prueba mientras solucionamos la conexión
+            $test_response = "Hola! Recibí tu mensaje: '{$message}'. Estoy trabajando para darte una respuesta con IA. (Respuesta de prueba)";
+            
+            error_log('TUTOR AI DEBUG: Sending test response');
+            wp_send_json_success($test_response);
 
         } catch (Exception $e) {
             error_log('Tutor AI Chat Error: ' . $e->getMessage());
-            wp_send_json_error('Lo siento, ocurrió un error al procesar tu mensaje. Por favor intenta de nuevo.');
+            wp_send_json_error('Lo siento, ocurrió un error: ' . $e->getMessage());
+        } catch (Error $e) {
+            error_log('Tutor AI Chat Fatal Error: ' . $e->getMessage());
+            wp_send_json_error('Error del sistema: ' . $e->getMessage());
         }
     }
 }
