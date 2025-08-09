@@ -64,8 +64,8 @@ class Plugin {
         // Initialize REST API
         RestController::instance();
         
-        // Initialize OpenAI Service
-        OpenAIService::instance();
+        // Initialize AI Service (unified for all providers)
+        // AIService will be instantiated when needed
         
         // Initialize Recommender
         Recommender::instance();
@@ -74,6 +74,9 @@ class Plugin {
         if (is_admin()) {
             AdminSettings::instance();
         }
+        
+        // Add admin notice hook
+        add_action('admin_notices', [$this, 'display_admin_notices']);
     }
 
     /**
@@ -131,5 +134,30 @@ class Plugin {
             TUTOR_AI_VERSION,
             true
         );
+    }
+
+    /**
+     * Display admin notices
+     */
+    public function display_admin_notices() {
+        // Check if API key is configured
+        $api_key = get_option('tutor_ai_openai_api_key', '');
+        
+        if (empty($api_key) && current_user_can('manage_options')) {
+            $settings_url = admin_url('options-general.php?page=tutor-ai-settings');
+            echo '<div class="notice notice-warning is-dismissible">';
+            echo '<p><strong>Tutor AI:</strong> ' . sprintf(
+                __('Por favor configura tu clave API de OpenAI en la <a href="%s">página de configuración</a> para activar las funciones de IA.', 'tutor-ai'),
+                esc_url($settings_url)
+            ) . '</p>';
+            echo '</div>';
+        }
+        
+        // Check if Tutor LMS is active
+        if (!class_exists('TUTOR\Tutor')) {
+            echo '<div class="notice notice-error">';
+            echo '<p><strong>Tutor AI:</strong> ' . __('Este plugin requiere Tutor LMS para funcionar correctamente.', 'tutor-ai') . '</p>';
+            echo '</div>';
+        }
     }
 }

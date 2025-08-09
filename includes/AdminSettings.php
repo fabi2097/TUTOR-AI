@@ -30,6 +30,7 @@ class AdminSettings {
     protected function init() {
         add_action('admin_menu', [$this, 'add_admin_menu']);
         add_action('admin_init', [$this, 'init_settings']);
+        add_action('wp_ajax_tutor_ai_test_connection', [$this, 'ajax_test_connection']);
     }
 
     /**
@@ -94,17 +95,87 @@ class AdminSettings {
         }
 
         // Handle form submission
-        if (isset($_POST['submit'])) {
-            check_admin_referer('tutor_ai_settings');
-            
-            update_option('tutor_ai_openai_api_key', sanitize_text_field($_POST['tutor_ai_openai_api_key'] ?? ''));
-            update_option('tutor_ai_chat_enabled', isset($_POST['tutor_ai_chat_enabled']) ? 1 : 0);
-            update_option('tutor_ai_recommendations_enabled', isset($_POST['tutor_ai_recommendations_enabled']) ? 1 : 0);
-            
-            echo '<div class="notice notice-success"><p>' . __('Settings saved successfully!', 'tutor-ai') . '</p></div>';
+        if (isset($_POST['submit']) && wp_verify_nonce($_POST['_wpnonce'], 'tutor_ai_settings')) {
+            $this->save_settings();
+            echo '<div class="notice notice-success is-dismissible"><p>' . __('Configuración guardada exitosamente!', 'tutor-ai') . '</p></div>';
         }
 
         include TUTOR_AI_PATH . 'admin/views/settings-page.php';
+    }
+
+    /**
+     * Save settings from form submission
+     */
+    private function save_settings() {
+        // General settings
+        update_option('tutor_ai_openai_api_key', sanitize_text_field($_POST['tutor_ai_openai_api_key'] ?? ''));
+        update_option('tutor_ai_provider', sanitize_text_field($_POST['ai_provider'] ?? 'openai'));
+        update_option('tutor_ai_model', sanitize_text_field($_POST['ai_model'] ?? 'gpt-4o-mini'));
+        update_option('tutor_ai_temperature', floatval($_POST['temperature'] ?? 0.7));
+        update_option('tutor_ai_max_tokens', intval($_POST['max_tokens'] ?? 800));
+        
+        // Behavior settings
+        update_option('tutor_ai_bot_name', sanitize_text_field($_POST['bot_name'] ?? 'Asistente de Cursos'));
+        update_option('tutor_ai_bot_language', sanitize_text_field($_POST['bot_language'] ?? 'es'));
+        update_option('tutor_ai_welcome_message', sanitize_textarea_field($_POST['welcome_message'] ?? ''));
+        update_option('tutor_ai_system_prompt', sanitize_textarea_field($_POST['system_prompt'] ?? ''));
+        
+        // Knowledge settings
+        update_option('tutor_ai_rag_enabled', isset($_POST['rag_enabled']) ? 1 : 0);
+        update_option('tutor_ai_rag_sources', $_POST['rag_sources'] ?? []);
+        
+        // Integration settings
+        update_option('tutor_ai_lms_platform', sanitize_text_field($_POST['lms_platform'] ?? 'tutor'));
+        update_option('tutor_ai_enable_course_recommendations', isset($_POST['enable_course_recommendations']) ? 1 : 0);
+        update_option('tutor_ai_enable_progress_tracking', isset($_POST['enable_progress_tracking']) ? 1 : 0);
+        update_option('tutor_ai_enable_enrollment_help', isset($_POST['enable_enrollment_help']) ? 1 : 0);
+        
+        // Appearance settings
+        update_option('tutor_ai_chat_enabled', isset($_POST['tutor_ai_chat_enabled']) ? 1 : 0);
+        update_option('tutor_ai_chat_position', sanitize_text_field($_POST['chat_position'] ?? 'bottom-right'));
+        update_option('tutor_ai_chat_color', sanitize_hex_color($_POST['chat_color'] ?? '#2563eb'));
+        
+        // Advanced settings
+        update_option('tutor_ai_daily_message_limit', intval($_POST['daily_message_limit'] ?? 50));
+        update_option('tutor_ai_response_timeout', intval($_POST['response_timeout'] ?? 30));
+        update_option('tutor_ai_enable_logging', isset($_POST['enable_logging']) ? 1 : 0);
+        update_option('tutor_ai_enable_debug', isset($_POST['enable_debug']) ? 1 : 0);
+    }
+
+    /**
+     * AJAX handler for testing AI connection
+     */
+    public function ajax_test_connection() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'tutor_ai_test_connection')) {
+            wp_die(__('Security check failed', 'tutor-ai'));
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Insufficient permissions', 'tutor-ai'));
+        }
+
+        $api_key = sanitize_text_field($_POST['api_key'] ?? '');
+        $provider = sanitize_text_field($_POST['provider'] ?? 'openai');
+
+        if (empty($api_key)) {
+            wp_send_json_error(__('API key is required', 'tutor-ai'));
+        }
+
+        try {
+            // Test the connection using AI service
+            $ai_service = new AIService();
+            $test_result = $ai_service->test_connection($api_key, $provider);
+
+            if ($test_result['success']) {
+                wp_send_json_success($test_result['message']);
+            } else {
+                wp_send_json_error($test_result['message']);
+            }
+        } catch (Exception $e) {
+            wp_send_json_error(sprintf(__('Error: %s', 'tutor-ai'), $e->getMessage()));
+        }
     }
 
     /**
@@ -149,8 +220,32 @@ class AdminSettings {
     public function get_settings() {
         return [
             'api_key' => get_option('tutor_ai_openai_api_key', ''),
+            'ai_provider' => get_option('tutor_ai_provider', 'openai'),
+            'ai_model' => get_option('tutor_ai_model', 'gpt-4o-mini'),
+            'temperature' => get_option('tutor_ai_temperature', 0.7),
+            'max_tokens' => get_option('tutor_ai_max_tokens', 800),
+            
+            'bot_name' => get_option('tutor_ai_bot_name', 'Asistente de Cursos'),
+            'bot_language' => get_option('tutor_ai_bot_language', 'es'),
+            'welcome_message' => get_option('tutor_ai_welcome_message', '¡Hola! Soy tu asistente de cursos. ¿En qué puedo ayudarte hoy?'),
+            'system_prompt' => get_option('tutor_ai_system_prompt', 'Eres un asistente educativo especializado en ayudar a estudiantes con cursos online. Responde de manera clara, útil y motivadora.'),
+            
+            'rag_enabled' => get_option('tutor_ai_rag_enabled', 1),
+            'rag_sources' => get_option('tutor_ai_rag_sources', ['courses', 'lessons']),
+            
+            'lms_platform' => get_option('tutor_ai_lms_platform', 'tutor'),
+            'enable_course_recommendations' => get_option('tutor_ai_enable_course_recommendations', 1),
+            'enable_progress_tracking' => get_option('tutor_ai_enable_progress_tracking', 1),
+            'enable_enrollment_help' => get_option('tutor_ai_enable_enrollment_help', 0),
+            
             'chat_enabled' => get_option('tutor_ai_chat_enabled', 1),
-            'recommendations_enabled' => get_option('tutor_ai_recommendations_enabled', 1),
+            'chat_position' => get_option('tutor_ai_chat_position', 'bottom-right'),
+            'chat_color' => get_option('tutor_ai_chat_color', '#2563eb'),
+            
+            'daily_message_limit' => get_option('tutor_ai_daily_message_limit', 50),
+            'response_timeout' => get_option('tutor_ai_response_timeout', 30),
+            'enable_logging' => get_option('tutor_ai_enable_logging', 1),
+            'enable_debug' => get_option('tutor_ai_enable_debug', 0),
         ];
     }
 

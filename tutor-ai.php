@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Tutor AI
- * Plugin URI: https://your-website.com/tutor-ai
+ * Plugin URI: https://startsoft.tech
  * Description: Asistente IA que recomienda cursos y resuelve dudas en Tutor LMS.
  * Version: 1.0.0
  * Author: FABIAN
